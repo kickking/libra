@@ -1,0 +1,108 @@
+body {
+    background-color: #000;
+    overflow: hidden;
+}
+
+#container {
+    position: absolute;
+}
+
+#txt-container {
+    position: relative;
+    z-index: 1;
+}
+
+.cssTitle {
+    position: absolute;
+    /* box-shadow: 0px 0px 12px rgba(0,255,255,0.5);
+    border: 1px solid rgba(127,255,255,0.25); */
+    text-align: center;
+    line-height: normal;
+    cursor: default;
+    z-index: 10;
+    overflow: hidden;
+}
+
+.libraTitle {
+    width: 256px;
+	height: 40px;
+}
+
+@keyframes libraTxtMoveIn {
+    0% {
+        transform: translate(0px,0px) skew(0deg, 10deg);
+    }
+    100% {
+        transform: translate(0px,-50px) skew(0deg, 0deg);
+    }
+}
+
+.libraTitle .moveIn{
+    animation: libraTxtMoveIn 1.5s linear 0.1s 1 forwards;
+}
+
+@keyframes libraTxtMoveOut {
+    0% {
+        transform: translate(0px,-50px);
+    }
+    100% {
+        transform: translate(0px,-100px);
+    }
+}
+
+.libraTitle .moveOut{
+    animation: libraTxtMoveOut 1.5s linear 1 forwards;
+}
+
+.libraTitle .libraTxt {
+    position: absolute;
+    top: 50px;
+    left: 0px;
+	right: 0px;
+    font-size: 30px;
+    font-family: STKaiti;
+    font-weight: bold;
+    color: rgba(255,255,255,1.0);
+}
+
+.cellTitle {
+    width: 128px;
+	height: 12px;
+}
+
+@keyframes cellTxtMoveIn {
+    0% {
+        transform: translate(0px,0px) skew(0deg, 20deg);
+    }
+    100% {
+        transform: translate(0px,-20px) skew(0deg, 0deg);
+    }
+}
+
+.cellTitle .moveIn{
+    animation: cellTxtMoveIn 0.5s linear 0.1s 1 forwards;
+}
+
+@keyframes cellTxtMoveOut {
+    0% {
+        transform: translate(0px,-20px);
+    }
+    100% {
+        transform: translate(0px,-40px);
+    }
+}
+
+.cellTitle .moveOut{
+    animation: cellTxtMoveOut 0.5s linear 1 forwards;
+}
+
+.cellTitle .cellName {
+    position: absolute;
+    top: 20px;
+    left: 0px;
+	right: 0px;
+    font-size: 1px;
+    font-family: STKaiti;
+    color: rgba(255,255,255,1.0);
+    text-shadow: 0 0 10px rgb(226, 116, 13);
+}
