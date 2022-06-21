@@ -13,6 +13,7 @@ import { AxonGeometryMaterial } from './materials/AxonGeometryMaterial.js';
 import { AxonPointLightMaterial } from './materials/AxonPointLightMaterial.js';
 import { MixDispDepthShader } from './shaders/DepthShader.js';
 import { CSS3DObject } from './jsm/renderers/CSS3DRenderer.js';
+import { SSDarkenMFShader } from './shaders/SSBrightnessShader.js';
 
 import { cellData, cellDataUnit } from './data/cell_data.js';
 
@@ -37,13 +38,13 @@ class CellLevel extends Level {
 
             initCamera();
             initCameraObject();
-            setRenderer();
             initRenderTarget( _rtWidth, _rtHeight );
             setEnv();
             setTexture();
             initMaterials();
             initCSSTitle();
             initModel();
+            initScreenMesh();
             initAnime();
 
             initDebug();
@@ -62,6 +63,7 @@ class CellLevel extends Level {
             _cameraCurrentTarget.copy( _cameraInitTarget );
             _camera.lookAt( _cameraCurrentTarget );
             _cameraPYMatrix.copy( _camera.clone().matrixWorld );
+            
         }
 
         const _cameraObject = new THREE.Object3D();
@@ -75,14 +77,13 @@ class CellLevel extends Level {
 
         }
 
-        function setRenderer() {
-
+        this.initRenderer = function() {
             _this.renderer.shadowMap.enabled = false;
-
         }
 
         let _rtCell;
         let _rtNucleusDepth;
+        let _rtCellMF;
 
         const _rtParams = {
             minFilter: THREE.LinearFilter, 
@@ -103,6 +104,7 @@ class CellLevel extends Level {
             _this.rtCell = _rtCell;
 
             _rtNucleusDepth = new THREE.WebGLRenderTarget( width, height, _rtParamsFloat );
+            _rtCellMF = new THREE.WebGLRenderTarget( width, height, _rtParamsFloat );
 
         }
 
@@ -153,6 +155,7 @@ class CellLevel extends Level {
         let _axonGeoMaterial;
         let _nucleusDepthMaterial;
         let _axonLightMaterial;
+        let _ssDarkenMFMaterial;
 
         function initMaterials() {
 
@@ -302,6 +305,24 @@ class CellLevel extends Level {
             _axonLightMaterial.layerFac = 0;
             _axonLightMaterial.time = 0;
             _axonLightMaterial.intensity = _axonLightIntensityFull;
+
+
+            _ssDarkenMFMaterial = new THREE.ShaderMaterial({
+                uniforms: THREE.UniformsUtils.clone( SSDarkenMFShader.uniforms ),
+                vertexShader: SSDarkenMFShader.vertexShader,
+                fragmentShader: SSDarkenMFShader.fragmentShader,
+                depthWrite: false,
+            });
+
+            _ssDarkenMFMaterial.uniforms[ 'tScreen' ].value = _rtCell.texture;
+            _ssDarkenMFMaterial.uniforms[ 'darkenFac' ].value = 1.0;
+            _ssDarkenMFMaterial.uniforms[ 'focusColorFac' ].value = new THREE.Vector3(1.0, 0.5, 1.0);
+            _ssDarkenMFMaterial.uniforms[ 'focusPos' ].value = new THREE.Vector2(0.0, 0.0);
+            _ssDarkenMFMaterial.uniforms[ 'threshold' ].value = window.innerWidth / 20;
+            _ssDarkenMFMaterial.uniforms[ 'falloff' ].value = window.innerWidth / 20;
+            
+            _ssDarkenMFMaterial.uniforms[ 'resolution' ].value = new THREE.Vector2( window.innerWidth, window.innerHeight );
+            _ssDarkenMFMaterial.uniforms[ 'devicePixelRatio' ].value = window.devicePixelRatio;
 
         }
 
@@ -706,6 +727,13 @@ class CellLevel extends Level {
             }
         }
 
+        let _screenMesh;
+
+        function initScreenMesh() {
+            _screenMesh = new THREE.Mesh( new THREE.PlaneGeometry( 2, 2 ), _ssDarkenMFMaterial );
+            _sceneScreen.add( _screenMesh );
+        }
+
         function initAnime() {
             initBrainFacAnime();
         }
@@ -871,6 +899,7 @@ class CellLevel extends Level {
         let _focusAnimFlag = false;
 
         function updateCamera() {
+            
             if( !_focusAnimFlag ){
                 updateCameraPitchAndYaw();
             }
@@ -881,6 +910,16 @@ class CellLevel extends Level {
 
         }
 
+        let _focusFlag = false;
+
+        function updateCSSLookAtCamera() {
+            if( !_focusFlag ){
+                for(let i = 0; i < _objectCSSList.length; i++){
+                    _objectCSSList[i].lookAt( _camera.position.clone() );
+                }
+            }
+        }
+
         this.doFrame = function() {
             
             updateTime();
@@ -888,6 +927,7 @@ class CellLevel extends Level {
             this.doDebugStats();
             TWEEN.update();
             updateCamera();
+            updateCSSLookAtCamera();
             
             render();
 
@@ -988,14 +1028,25 @@ class CellLevel extends Level {
 
             _this.renderer.setViewport( 0, 0, window.innerWidth, window.innerHeight );
 
+
+            _this.renderer.setRenderTarget( _rtNucleusDepth );
+            _this.renderer.clear();
+            _this.renderer.render( _sceneNucleusDepth, _camera );
+
             _this.renderer.setRenderTarget( _rtCell );
             _this.renderer.clear();
             _this.renderer.render( _sceneCells, _camera );
 
+            _screenMesh.material = _ssDarkenMFMaterial;
+            _ssDarkenMFMaterial.uniforms[ 'devicePixelRatio' ].value = 1.0;
+            _this.renderer.setRenderTarget( _rtCellMF );
+            _this.renderer.clear();
+            _this.renderer.render( _sceneScreen, _camera );
+
         }
 
         this.setOutput = function( output ) {
-            output.setTexture( _rtCell.texture );
+            output.setTexture( _rtCellMF.texture );
         }
 
     }

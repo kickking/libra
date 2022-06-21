@@ -65,6 +65,17 @@ body {
     color: rgba(255,255,255,1.0);
 }
 
+.libraTitle .libraSubTxt {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+	right: 0px;
+    font-size: 10px;
+    font-family: STKaiti;
+    /* font-weight: bold; */
+    color: rgba(255,255,255,1.0);
+}
+
 .cellTitle {
     width: 128px;
 	height: 12px;

@@ -57,9 +57,11 @@ class LibraLevel extends Level {
 
         function initCSSObject() {
             initCSSTitle();
+            initCSSSubTitle();
         }
 
         const _CSSTitlePos = new THREE.Vector3(3.5, 0, 0);
+        const _CSSSubTitlePos = new THREE.Vector3(3.5, -1, 0);
         const _CSSScale = 0.02;
 
         let _title;
@@ -83,6 +85,29 @@ class LibraLevel extends Level {
 
             _sceneCSS.add( _cameraObjectCSS );
         }
+
+        let _subTitle;
+
+        function initCSSSubTitle() {
+            const element = document.createElement( 'div' );
+            element.className = 'cssTitle libraTitle';
+            element.style.backgroundColor = 'rgba(0,0,0,0)';
+
+            _subTitle = document.createElement( 'div' );
+            _subTitle.className = 'libraSubTxt';
+            _subTitle.textContent = '北京百年';
+            element.appendChild( _subTitle );
+
+            const objectCSS = new CSS3DObject( element );
+            const worldPos = _CSSSubTitlePos.clone();
+            const localPos = _cameraObjectCSS.worldToLocal(worldPos);
+            objectCSS.position.copy(localPos);
+            objectCSS.scale.multiplyScalar( _CSSScale );
+            _cameraObjectCSS.add(objectCSS);
+
+            _sceneCSS.add( _cameraObjectCSS );
+        }
+
 
         function initAnime() {
             initOpeningAnime();
@@ -180,6 +205,7 @@ class LibraLevel extends Level {
             .easing( TWEEN.Easing.Linear.None )
             .delay( _levelTransDelay )
             .onComplete(()=>{
+                _cellLevel.initRenderer();
                 _this.levelControl.setOutput( _cellLevel );
                 _cellLevel.playOpeningAnime();
                 _this.levelControl.removeLevel( _this );
