@@ -204,7 +204,7 @@ class LogoLevel extends Level {
         }
     
         const _scissorHeightRatioMin = 0.27;
-        const _scissorHeightRatioMax = 0.57;
+        const _scissorHeightRatioMax = 0.57 * 1.25 / window.devicePixelRatio;
         const _scissorHeightRatioDif = _scissorHeightRatioMax - _scissorHeightRatioMin;
 
         const _progressRatioObj = {
@@ -293,6 +293,7 @@ class LogoLevel extends Level {
         function loadGlobalRes() {
             _this.loader.load();
             _loadAnime.start();
+
         }
 
         function updateProgress() {
