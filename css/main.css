@@ -28,7 +28,7 @@ body {
 	height: 40px;
 }
 
-@keyframes libraTxtMoveIn {
+@keyframes libraTitleMoveIn {
     0% {
         transform: translate(0px,0px) skew(0deg, 10deg);
     }
@@ -38,10 +38,10 @@ body {
 }
 
 .libraTitle .moveIn{
-    animation: libraTxtMoveIn 1.5s linear 0.1s 1 forwards;
+    animation: libraTitleMoveIn 1.5s linear 0.1s 1 forwards;
 }
 
-@keyframes libraTxtMoveOut {
+@keyframes libraTitleMoveOut {
     0% {
         transform: translate(0px,-50px);
     }
@@ -51,10 +51,10 @@ body {
 }
 
 .libraTitle .moveOut{
-    animation: libraTxtMoveOut 1.5s linear 1 forwards;
+    animation: libraTitleMoveOut 1.5s linear 1 forwards;
 }
 
-.libraTitle .libraTxt {
+.libraTitle .txt {
     position: absolute;
     top: 50px;
     left: 0px;
@@ -65,9 +65,40 @@ body {
     color: rgba(255,255,255,1.0);
 }
 
-.libraTitle .libraSubTxt {
+.libraSubTitle {
+    width: 256px;
+	height: 15px;
+}
+
+@keyframes libraSubTitleMoveIn {
+    0% {
+        transform: translate(0px,0px) skew(0deg, 10deg);
+    }
+    100% {
+        transform: translate(0px,-20px) skew(0deg, 0deg);
+    }
+}
+
+.libraSubTitle .moveIn{
+    animation: libraSubTitleMoveIn 1.5s linear 0.1s 1 forwards;
+}
+
+@keyframes libraSubTitleMoveOut {
+    0% {
+        transform: translate(0px,-20px);
+    }
+    100% {
+        transform: translate(0px,-40px);
+    }
+}
+
+.libraSubTitle .moveOut{
+    animation: libraSubTitleMoveOut 1.5s linear 1 forwards;
+}
+
+.libraSubTitle .txt {
     position: absolute;
-    top: 0px;
+    top: 20px;
     left: 0px;
 	right: 0px;
     font-size: 10px;

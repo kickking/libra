@@ -61,7 +61,7 @@ class LibraLevel extends Level {
         }
 
         const _CSSTitlePos = new THREE.Vector3(3.5, 0, 0);
-        const _CSSSubTitlePos = new THREE.Vector3(3.5, -1, 0);
+        const _CSSSubTitlePos = new THREE.Vector3(3.5, -0.8, 0);
         const _CSSScale = 0.02;
 
         let _title;
@@ -72,7 +72,7 @@ class LibraLevel extends Level {
             element.style.backgroundColor = 'rgba(0,0,0,0)';
 
             _title = document.createElement( 'div' );
-            _title.className = 'libraTxt moveIn';
+            _title.className = 'txt moveIn';
             _title.textContent = '北京百年远古树人';
             element.appendChild( _title );
 
@@ -90,11 +90,11 @@ class LibraLevel extends Level {
 
         function initCSSSubTitle() {
             const element = document.createElement( 'div' );
-            element.className = 'cssTitle libraTitle';
+            element.className = 'cssTitle libraSubTitle';
             element.style.backgroundColor = 'rgba(0,0,0,0)';
 
             _subTitle = document.createElement( 'div' );
-            _subTitle.className = 'libraSubTxt';
+            _subTitle.className = 'txt moveIn';
             _subTitle.textContent = '北京百年';
             element.appendChild( _subTitle );
 
@@ -630,7 +630,8 @@ class LibraLevel extends Level {
                 _isEndingAnimeStart = true;
                 _isUpdateCameraPY = false;
 
-                _title.className = 'libraTxt moveOut';
+                _title.className = 'txt moveOut';
+                _subTitle.className = 'txt moveOut';
                 _levelTransAnime.start();
                 _cameraEndingAnime.start();
 
