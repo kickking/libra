@@ -780,7 +780,9 @@ class CellLevel extends Level {
             initCSSObject( _focusContentObjR, _focusContentParamR, 'cellFocusContent', 'focusTxt pre' );
             initCSSObject( _focusContentObjL, _focusContentParamL, 'cellFocusContent', 'focusTxt pre' );
 
-            // initCSSObject( returnObj, returnParam, 'cellReturn', 'returnTxt txtMoveIn', onReturnClick );
+            initCSSObject( _returnObj, _returnParam, 'cellReturn', 'returnTxt moveIn', onReturnClick );
+
+            initReturnContent();
         }
 
         function initCSSObject( obj, focusParam, outerClass, innerClass, clickFunc ) {
@@ -806,6 +808,11 @@ class CellLevel extends Level {
             _cameraObject.add( obj.cssObj );
             _sceneCSS.add( _cameraObject );
 
+        }
+
+        function initReturnContent() {
+            _returnObj.textEle.textContent = '返回';
+            _returnObj.cssObj.visible = true;
         }
 
         class CellTextObj{
@@ -860,6 +867,15 @@ class CellLevel extends Level {
             currentAngle: 0,
         };
 
+        let _returnObj;
+        let _returnParam;
+        const _returnParamObj = {
+            worldPos : new THREE.Vector3(0, -4, -5),
+            axisWorldPos : new THREE.Vector3(0, 0, 0),
+            initAngle : 0,
+            currentAngle: 0,
+        };
+
         function initCSSObjectParam() {
 
             _focusTitleObjR = new CellTextObj();
@@ -873,6 +889,9 @@ class CellLevel extends Level {
 
             _focusContentObjL = new CellTextObj();
             _focusContentParamL = new CellTextParam( _focusContentParamLObj );
+
+            _returnObj = new CellTextObj();
+            _returnParam = new CellTextParam( _returnParamObj );
 
         }
 
@@ -1022,6 +1041,7 @@ class CellLevel extends Level {
                 for(let i = 0; i < _objectCSSList.length; i++){
                     _objectCSSList[i].element.children[0].className = "cellName moveOut";
                 }
+                _returnObj.cssObj.element.children[0].className = "returnTxt moveOut";
 
                 const cell = _cellsGroup.children[ _CELL_INTERSECTED.cellIndex ];
                 new TWEEN.Tween( _camera.position )
@@ -1055,7 +1075,7 @@ class CellLevel extends Level {
                     .onUpdate(() =>{
                     })
                     .onComplete( ()=>{
-                        // returnObj.cssObj.element.children[0].className = "returnTxt txtMoveIn";
+                        _returnObj.cssObj.element.children[0].className = "returnTxt moveIn";
                         resetFocusAnimFlag( _mouseMovFacFocus );
                     } ).start();
         
@@ -1114,6 +1134,72 @@ class CellLevel extends Level {
             _targetCameraY = 0;
             _focusAnimFlag = false;
         }
+
+        const _targetReturnTimeMS = 1000;
+        const _cameraReturnDelayMS = 500;
+        const _cameraReturnTimeMS = 2000;
+
+        function onReturnClick() {
+            if( _focusFlag && !_focusAnimFlag && !_startAnimeFlag ) {
+                TWEEN.removeAll();
+                _focusAnimFlag = true;
+
+                const target = _camera.position.clone();
+                target.addScaledVector( _camera.getWorldDirection(new THREE.Vector3()), 1 );
+                _cameraCurrentTarget.copy(target);
+                _isCameraLookAtTarget = true;
+
+                new TWEEN.Tween( _cameraCurrentTarget )
+                .to( {x : _cameraInitTarget.x, y : _cameraInitTarget.y, z : _cameraInitTarget.z}, _targetReturnTimeMS )
+                .easing( TWEEN.Easing.Linear.None )
+                .onUpdate(() =>{
+                })
+                .onComplete( ()=>{
+                })
+                .start();
+
+                const mat4 = new THREE.Matrix4();
+
+                if(cellData[_CELL_INTERSECTED.cellIndex * cellDataUnit + 2] === 'r'){
+                    addRotateCameraTxtAnim(mat4, _focusTitleObjR, _focusTitleParamR, false, 
+                        0, _focusTitleParamR.initAngle, null, _focusTxtTimeMS, 0);
+                    addRotateCameraTxtAnim(mat4, _focusContentObjL, _focusContentParamL, false, 
+                        0, _focusContentParamL.initAngle, null, _focusTxtTimeMS, 0)
+                }else{
+                    addRotateCameraTxtAnim(mat4, _focusTitleObjL, _focusTitleParamL, false, 
+                        0, _focusTitleParamL.initAngle, null, _focusTxtTimeMS, 0);
+                    addRotateCameraTxtAnim(mat4, _focusContentObjR, _focusContentParamR, false, 
+                        0, _focusContentParamR.initAngle, null, _focusTxtTimeMS, 0);
+                }
+
+                _returnObj.cssObj.element.children[0].className = "returnTxt moveOut";
+                new TWEEN.Tween( _camera.position )
+                .to( {x : _cameraInitPos.x, y : _cameraInitPos.y, z : _cameraInitPos.z}, _cameraReturnTimeMS )
+                .easing( TWEEN.Easing.Quadratic.InOut )
+                .delay( _cameraReturnDelayMS )
+                .onUpdate(() =>{
+                })
+                .onComplete( ()=>{
+                    _focusFlag = false;
+                    resetFocusAnimFlag(_mouseMovFacNormal);
+
+                    for(let i = 0; i < _objectCSSList.length; i++){
+                        _objectCSSList[i].element.children[0].className = "cellName moveIn";
+                    }
+                    _returnObj.cssObj.element.children[0].className = "returnTxt moveIn";
+                })
+                .start();
+
+                _mixFac = _ssFacMixCombineMaterial.uniforms[ 'factor' ];
+                new TWEEN.Tween( _mixFac )
+                .to( {value : 0.0}, _cameraReturnTimeMS )
+                .easing( TWEEN.Easing.Linear.None )
+                .delay( _cameraReturnDelayMS )
+                .onComplete( ()=>{
+                } ).start();
+            }
+        }
+
 
         const _cameraBasePos = new THREE.Vector3();
         let _targetCameraX = 0;

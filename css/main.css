@@ -241,11 +241,11 @@ body {
     text-shadow: 0 0 10px rgb(226, 116, 13);
 }
 
-.cellReturn .txtMoveIn{
+.cellReturn .moveIn{
     animation: cellTxtMoveIn 0.5s linear 0.1s 1 forwards;
 }
 
-.cellReturn .txtMoveOut{
+.cellReturn .moveOut{
     animation: cellTxtMoveOut 0.5s linear 1 forwards;
 }
 
