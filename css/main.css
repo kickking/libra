@@ -148,3 +148,120 @@ body {
     color: rgba(255,255,255,1.0);
     text-shadow: 0 0 10px rgb(226, 116, 13);
 }
+
+.cellFocusTitle {
+    position: absolute;
+    width: 400px;
+    height: 60px;
+    /* box-shadow: 0px 0px 12px rgba(0,255,255,0.5);
+    border: 1px solid rgba(127,255,255,0.25); */
+    /* font-family: Helvetica, sans-serif; */
+    text-align: center;
+    line-height: normal;
+    cursor: default;
+    z-index: 10;
+    overflow: hidden;
+}
+
+.cellFocusTitle .focusName {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    right: 0px;
+    font-size: 40px;
+    font-family: STKaiti;
+    color: rgba(255,255,255,1.0);
+    text-shadow: 0 0 10px rgb(226, 116, 13);
+}
+
+.cellFocusContent {
+    position: absolute;
+    width: 775px;
+    height: 728px;
+    /* box-shadow: 0px 0px 12px rgba(0,255,255,0.5);
+    border: 1px solid rgba(127,255,255,0.25); */
+    /* font-family: Helvetica, sans-serif; */
+    text-align: left;
+    line-height: normal;
+    cursor: default;
+    z-index: 10;
+    overflow-x: hidden;
+    overflow-y: scroll;
+}
+
+.cellFocusContent::-webkit-scrollbar {
+    display: none;
+}
+
+.cellFocusContent .focusTxt {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    right: 0px;
+    font-size: 24px;
+    font-family: STKaiti;
+    /* font-weight: bold; */
+    /* background-color: brown; */
+    color: rgba(255,255,255,1.0);
+    text-shadow: 0 0 10px rgb(226, 116, 13);
+}
+
+.cellFocusContent .pre {
+    white-space: pre-wrap;
+    white-space: -moz-pre-wrap;
+    white-space: -pre-wrap;
+    white-space: -o-pre-wrap;
+    *word-wrap: break-word;
+    *white-space : normal; 
+}
+
+.cellReturn {
+    position: absolute;
+    width: 200px;
+    height: 30px;
+    /* box-shadow: 0px 0px 12px rgba(0,255,255,0.5);
+    border: 1px solid rgba(127,255,255,0.25); */
+    /* font-family: Helvetica, sans-serif; */
+    text-align: center;
+    line-height: normal;
+    cursor: default;
+    z-index: 10;
+    overflow: hidden;
+}
+
+.cellReturn .returnTxt {
+    position: absolute;
+    top: 20px;
+    left: 0px;
+    right: 0px;
+    font-size: 16px;
+    /* font-weight: bold; */
+    /* background-color: brown; */
+    color: rgba(255,255,255,1.0);
+    text-shadow: 0 0 10px rgb(226, 116, 13);
+}
+
+.cellReturn .txtMoveIn{
+    animation: cellTxtMoveIn 0.5s linear 0.1s 1 forwards;
+}
+
+.cellReturn .txtMoveOut{
+    animation: cellTxtMoveOut 0.5s linear 1 forwards;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -168,9 +168,53 @@ const SSNoiseSpiralCombineShader = {
         gl_FragColor = linearToOutputTexel( gl_FragColor );
     }
     `,
+};
 
+const SSFacMixCombineShader = {
+    uniforms: {
+        'tScreen0': {
+            value: null
+        },
+        'tScreen1': {
+            value: null
+        },
+        'factor': {
+            value: null
+        },
+    },
+    vertexShader:
+    /* glsl */
+    `
+    varying vec2 vUv;
+
+    void main() {
+
+        vUv = uv;
+        gl_Position =  vec4( position, 1.0 );
+
+    }
+    `,
+    fragmentShader:
+    /* glsl */
+    `
+    varying vec2 vUv;
+    uniform sampler2D tScreen0;
+    uniform sampler2D tScreen1;
+    uniform float factor;
+
+    void main() {
+        vec2 uvs = vUv;
+        vec3 screen0 = texture( tScreen0, uvs ).rgb;
+        vec3 screen1 = texture( tScreen1, uvs ).rgb;
+        vec3 fac = vec3(factor);
+        vec3 color = mix(screen0, screen1, fac);
+
+        gl_FragColor = vec4(vec3(color), 1.0);
+        gl_FragColor = linearToOutputTexel(gl_FragColor);
+    }
+    `,
 
 };
 
 
-export { SSShowShader, SSDepthCombineShader, SSNoiseSpiralCombineShader };
+export { SSShowShader, SSDepthCombineShader, SSNoiseSpiralCombineShader, SSFacMixCombineShader };

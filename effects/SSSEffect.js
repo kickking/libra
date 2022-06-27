@@ -3,8 +3,8 @@
 import * as THREE from '../build/three.module.js';
 
 import { copySamePropData } from '../util.js';
-import { SSSShader } from '../shaders/SSSShader.js'
-import { SimplexNoise } from '../jsm/math/SimplexNoise.js'
+import { SSSShader } from '../shaders/SSSShader.js';
+import { SimplexNoise } from '../jsm/math/SimplexNoise.js';
 
 
 class SSSEffect {

@@ -649,7 +649,7 @@ class LibraLevel extends Level {
                 base : _this.base,
                 levelControl : _this.levelControl,
     
-                // debugStats : true,
+                debugStats : true,
                 // debugObitCtrl : true,
                 // debugAxesHelper : true,
     

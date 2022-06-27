@@ -3,7 +3,7 @@ import * as THREE from './build/three.module.js';
 
 import { TWEEN } from './jsm/libs/tween.module.min.js';
 import { Level } from './level.js';
-import { copySamePropData, getRandomIntBetween } from './util.js';
+import { copySamePropData, getRandomIntBetween, updateObjectTransformMatrix } from './util.js';
 import { Axon } from './axon.js';
 import { BrainPointsMaterial } from './materials/BrainPointsMaterial.js';
 import { SpherePointsMaterial } from './materials/SpherePointsMaterial.js';
@@ -14,8 +14,10 @@ import { AxonPointLightMaterial } from './materials/AxonPointLightMaterial.js';
 import { MixDispDepthShader } from './shaders/DepthShader.js';
 import { CSS3DObject } from './jsm/renderers/CSS3DRenderer.js';
 import { SSDarkenMFShader } from './shaders/SSBrightnessShader.js';
+import { SSGaussianBlurEffect } from './effects/SSGaussianBlurEffect.js';
+import { SSShowShader, SSFacMixCombineShader } from './shaders/SSCombineShader.js';
 
-import { cellData, cellDataUnit } from './data/cell_data.js';
+import { cellData, cellDataUnit, cellContentData } from './data/cell_data.js';
 
 class CellLevel extends Level {
     constructor( parameters = {} ) {
@@ -43,7 +45,9 @@ class CellLevel extends Level {
             setTexture();
             initMaterials();
             initCSSTitle();
+            initCSSObjects();
             initModel();
+            initGaussianBlurEffect();
             initScreenMesh();
             initAnime();
 
@@ -84,6 +88,10 @@ class CellLevel extends Level {
         let _rtCell;
         let _rtNucleusDepth;
         let _rtCellMF;
+        let _rtCellGeo;
+        let _rtGaussianBlur;
+        let _rtShow;
+        let _rtCombine;
 
         const _rtParams = {
             minFilter: THREE.LinearFilter, 
@@ -102,9 +110,13 @@ class CellLevel extends Level {
 
             _rtCell = new THREE.WebGLRenderTarget( width, height, _rtParams );
             _this.rtCell = _rtCell;
+            _rtShow = new THREE.WebGLRenderTarget( width, height, _rtParams );
+            _rtCombine = new THREE.WebGLRenderTarget( width, height, _rtParams );
 
             _rtNucleusDepth = new THREE.WebGLRenderTarget( width, height, _rtParamsFloat );
             _rtCellMF = new THREE.WebGLRenderTarget( width, height, _rtParamsFloat );
+            _rtCellGeo = new THREE.WebGLRenderTarget( width, height, _rtParamsFloat );
+            _rtGaussianBlur = new THREE.WebGLRenderTarget( width, height, _rtParamsFloat );
 
         }
 
@@ -120,6 +132,7 @@ class CellLevel extends Level {
             _envData = _this.resource.HDRData.loft_hall;
     
             _sceneCells.environment = _envData.hdr;
+            _sceneCellsGeo.environment = _envData.hdr;
 
         }
 
@@ -156,6 +169,9 @@ class CellLevel extends Level {
         let _nucleusDepthMaterial;
         let _axonLightMaterial;
         let _ssDarkenMFMaterial;
+        let _ssShowMaterial;
+        let _ssFacMixCombineMaterial;
+
 
         function initMaterials() {
 
@@ -265,7 +281,7 @@ class CellLevel extends Level {
                 roughness: 0,
                 ior: 1.5,
                 envMapIntensity: 1,
-                transmission: 0.9, // use material.transmission for glass materials
+                transmission: 1.0, // use material.transmission for glass materials
                 specularIntensity: 1,
                 specularTint: 0xffffff,
                 opacity: 1.0,
@@ -323,6 +339,25 @@ class CellLevel extends Level {
             
             _ssDarkenMFMaterial.uniforms[ 'resolution' ].value = new THREE.Vector2( window.innerWidth, window.innerHeight );
             _ssDarkenMFMaterial.uniforms[ 'devicePixelRatio' ].value = window.devicePixelRatio;
+
+            _ssShowMaterial = new THREE.ShaderMaterial({
+                defines: Object.assign( {}, SSShowShader.defines ),
+                uniforms: THREE.UniformsUtils.clone( SSShowShader.uniforms ),
+                vertexShader: SSShowShader.vertexShader,
+                fragmentShader: SSShowShader.fragmentShader,
+                depthWrite: false,
+            });
+
+            _ssFacMixCombineMaterial = new THREE.ShaderMaterial({
+                uniforms: THREE.UniformsUtils.clone( SSFacMixCombineShader.uniforms ),
+                vertexShader: SSFacMixCombineShader.vertexShader,
+                fragmentShader: SSFacMixCombineShader.fragmentShader,
+                depthWrite: false,
+            });
+            _ssFacMixCombineMaterial.uniforms[ 'tScreen0' ].value = _rtCellMF.texture;
+            _ssFacMixCombineMaterial.uniforms[ 'tScreen1' ].value = _rtShow.texture;
+            _ssFacMixCombineMaterial.uniforms[ 'factor' ].value = 0;
+
 
         }
 
@@ -700,6 +735,15 @@ class CellLevel extends Level {
         
         }
 
+        let _gaussianEffect;
+
+        function initGaussianBlurEffect() {
+            _gaussianEffect = new SSGaussianBlurEffect({
+                blurData: [1],
+            });
+        }
+
+
         const _objectCSSList = [];
         const _cssScale = 0.01;
         const _cellTxtDisRaduis = _cellRadius * _cellScale * 1.5;
@@ -726,6 +770,112 @@ class CellLevel extends Level {
                 _objectCSSList.push( objectCSS );
             }
         }
+
+        function initCSSObjects() {
+            initCSSObjectParam();
+
+            initCSSObject( _focusTitleObjR, _focusTitleParamR, 'cellFocusTitle', 'focusName' );
+            initCSSObject( _focusTitleObjL, _focusTitleParamL, 'cellFocusTitle', 'focusName' );
+
+            initCSSObject( _focusContentObjR, _focusContentParamR, 'cellFocusContent', 'focusTxt pre' );
+            initCSSObject( _focusContentObjL, _focusContentParamL, 'cellFocusContent', 'focusTxt pre' );
+
+            // initCSSObject( returnObj, returnParam, 'cellReturn', 'returnTxt txtMoveIn', onReturnClick );
+        }
+
+        function initCSSObject( obj, focusParam, outerClass, innerClass, clickFunc ) {
+
+            const element = document.createElement( 'div' );
+            element.className = outerClass;
+            element.style.backgroundColor = 'rgba(0,0,0,0)';
+            if(clickFunc){
+                element.addEventListener( 'click', clickFunc );
+            }
+
+            obj.textEle = document.createElement( 'div' );
+            obj.textEle.className = innerClass;
+            element.appendChild( obj.textEle );
+
+            obj.cssObj = new CSS3DObject( element );
+
+            let worldPos = focusParam.worldPos.clone();
+            let localPos = _cameraObject.worldToLocal( worldPos );
+            obj.cssObj.position.copy( localPos );
+
+            obj.cssObj.scale.multiplyScalar( _cssScale );
+            _cameraObject.add( obj.cssObj );
+            _sceneCSS.add( _cameraObject );
+
+        }
+
+        class CellTextObj{
+            constructor() {
+                this.textELe = null;
+                this.cssObj = null;
+            }
+        }
+
+        class CellTextParam{
+            constructor(param) {
+                this.worldPos = param.worldPos;    
+                this.axisWorldPos = param.axisWorldPos;
+                this.initAngle = param.initAngle;
+                this.currentAngle = param.currentAngle;
+            }
+        }
+
+        let _focusTitleObjR;
+        let _focusTitleParamR;
+        const _focusTitleParamRObj = {
+            worldPos : new THREE.Vector3( 3.5, 0, -5 ),
+            axisWorldPos : new THREE.Vector3( 3.5, 0, -5.5 ),
+            initAngle : Math.PI / 3,
+            currentAngle: 0,
+        }
+        
+        let _focusTitleObjL;
+        let _focusTitleParamL;
+        const _focusTitleParamLObj = {
+            worldPos : new THREE.Vector3( -3.5, 0, -5 ),
+            axisWorldPos : new THREE.Vector3( -3.5, 0, -5.5 ),
+            initAngle : -Math.PI / 3,
+            currentAngle: 0,
+        };
+        
+        let _focusContentObjR;
+        let _focusContentParamR;
+        const _focusContentParamRObj = {
+            worldPos : new THREE.Vector3( 4.5, 0, -5 ),
+            axisWorldPos : new THREE.Vector3( 4.5, 0, -6 ),
+            initAngle : Math.PI / 3,
+            currentAngle: 0,
+        };
+        
+        let _focusContentObjL;
+        let _focusContentParamL;
+        const _focusContentParamLObj = {
+            worldPos : new THREE.Vector3( -4.5, 0, -5 ),
+            axisWorldPos : new THREE.Vector3( -4.5, 0, -6 ),
+            initAngle : -Math.PI / 3,
+            currentAngle: 0,
+        };
+
+        function initCSSObjectParam() {
+
+            _focusTitleObjR = new CellTextObj();
+            _focusTitleParamR = new CellTextParam( _focusTitleParamRObj );
+
+            _focusTitleObjL = new CellTextObj();
+            _focusTitleParamL = new CellTextParam( _focusTitleParamLObj );
+
+            _focusContentObjR = new CellTextObj();
+            _focusContentParamR = new CellTextParam( _focusContentParamRObj );
+
+            _focusContentObjL = new CellTextObj();
+            _focusContentParamL = new CellTextParam( _focusContentParamLObj );
+
+        }
+
 
         let _screenMesh;
 
@@ -840,6 +990,7 @@ class CellLevel extends Level {
         function addListener() {
             window.addEventListener( 'resize', onWindowResize );
             window.addEventListener( 'pointermove', onPointerMove );
+            window.addEventListener( 'pointerdown', onPointerDown );
         }
 
         function onWindowResize() {
@@ -851,13 +1002,129 @@ class CellLevel extends Level {
             resizeRenderTarget( window.innerWidth, window.innerHeight );
         }
 
+        let _focusFlag = false;
+        let _focusAnimFlag = false;
+
+        const _cellCameraFocusTimeMS = 2000;
+        const _cellCameraFocusDelayMS = 500;
+
+        const _focusTxtTimeMS = 1000;
+        const _focusTxtDelayMS = 500;
+
+        let _mixFac = 0.0;
+
+        function onPointerDown( event ) {
+            if( _CELL_INTERSECTED && !_focusFlag) {
+                TWEEN.removeAll();
+                _focusFlag = true;
+                _focusAnimFlag = true;
+
+                for(let i = 0; i < _objectCSSList.length; i++){
+                    _objectCSSList[i].element.children[0].className = "cellName moveOut";
+                }
+
+                const cell = _cellsGroup.children[ _CELL_INTERSECTED.cellIndex ];
+                new TWEEN.Tween( _camera.position )
+                .to( {x : cell.CameraFocusPos.x, y : cell.CameraFocusPos.y, z : cell.CameraFocusPos.z}, _cellCameraFocusTimeMS )
+                .easing( TWEEN.Easing.Quadratic.In )
+                .delay( _cellCameraFocusDelayMS )
+                .onUpdate(() =>{
+                })
+                .onComplete( ()=>{
+                    const mat4 = new THREE.Matrix4();
+                    const title = cellData[ _CELL_INTERSECTED.cellIndex * cellDataUnit + 1 ];
+                    const content = cellContentData[ _CELL_INTERSECTED.cellIndex ];
+        
+                    if( cellData[ _CELL_INTERSECTED.cellIndex * cellDataUnit + 2 ] === 'r' ){
+                        addRotateCameraTxtAnim(mat4, _focusTitleObjR, _focusTitleParamR, true,
+                            _focusTitleParamR.initAngle, 0, title, _focusTxtTimeMS, _focusTxtDelayMS);
+                        addRotateCameraTxtAnim(mat4, _focusContentObjL, _focusContentParamL, true,
+                            _focusContentParamL.initAngle, 0, content, _focusTxtTimeMS, _focusTxtDelayMS);
+                    }else{
+                        addRotateCameraTxtAnim(mat4, _focusTitleObjL, _focusTitleParamL, true,
+                            _focusTitleParamL.initAngle, 0, title, _focusTxtTimeMS, _focusTxtDelayMS);
+                        addRotateCameraTxtAnim(mat4, _focusContentObjR, _focusContentParamR, true,
+                            _focusContentParamR.initAngle, 0, content, _focusTxtTimeMS, _focusTxtDelayMS);
+                    }
+
+                    _isCameraLookAtTarget = false;
+
+                    new TWEEN.Tween( _camera.position )
+                    .to( {x : cell.CameraFocusPosCross.x, y : cell.CameraFocusPosCross.y, z : cell.CameraFocusPosCross.z}, _cellCameraFocusTimeMS )
+                    .easing( TWEEN.Easing.Quadratic.Out )
+                    .onUpdate(() =>{
+                    })
+                    .onComplete( ()=>{
+                        // returnObj.cssObj.element.children[0].className = "returnTxt txtMoveIn";
+                        resetFocusAnimFlag( _mouseMovFacFocus );
+                    } ).start();
+        
+                } ).start();
+
+                _mixFac = _ssFacMixCombineMaterial.uniforms[ 'factor' ];
+                new TWEEN.Tween( _mixFac )
+                .to( {value : 1.0}, _cellCameraFocusTimeMS )
+                .easing( TWEEN.Easing.Linear.None )
+                .delay( _cellCameraFocusDelayMS )
+                .onComplete( ()=>{
+                } ).start();
+
+            }
+        }
+
+        function addRotateCameraTxtAnim( mat4, obj, param, visible, startAngle, endAngle, html, duration, delay ) {
+            param.currentAngle = startAngle;
+            if( visible ){
+                obj.cssObj.visible = true;
+            }
+            new TWEEN.Tween(param)
+            .to( { currentAngle : endAngle }, duration )
+            .delay( delay )
+            .easing( TWEEN.Easing.Linear.None )
+            .onUpdate(() =>{
+                if( html ){
+                    obj.textEle.innerHTML = html;
+                }
+                
+                updateObjectTransformMatrix( mat4,
+                    param.axisWorldPos, 
+                    new THREE.Vector3(), 
+                    new THREE.Vector3(0, param.currentAngle, 0), 
+                    new THREE.Vector3(1,1,1) );
+        
+                let posWorld = param.worldPos.clone();
+                posWorld.applyMatrix4( mat4 );
+                let posLocal = _cameraObjectInit.worldToLocal( posWorld );
+                obj.cssObj.position.copy( posLocal );
+        
+                obj.cssObj.rotation.set( 0, param.currentAngle, 0 );
+            })
+            .onComplete( ()=>{
+                if( !visible ){
+                    obj.cssObj.visible = false;
+                }
+            } ).start();
+        }
+
+        function resetFocusAnimFlag( fac ){
+            _cameraPYMatrix.copy( _camera.clone().matrixWorld );
+            _mouseMovFac = fac;
+            _cameraBasePos.set(0,0,0);
+            _targetCameraX = 0;
+            _targetCameraY = 0;
+            _focusAnimFlag = false;
+        }
+
         const _cameraBasePos = new THREE.Vector3();
         let _targetCameraX = 0;
         let _targetCameraY = 0;
         let _targetCameraZ = 0;
 
         const _mouseMovFacNormal = 0.001;
+        const _mouseMovFacFocus = 0.0002;
         let _mouseMovFac = _mouseMovFacNormal;
+
+        const _pointer = new THREE.Vector2(1.0, 1.0);
 
         let _mouseX = 0, _mouseY = 0;
         let _windowHalfX = window.innerWidth / 2;
@@ -869,6 +1136,10 @@ class CellLevel extends Level {
 
             _targetCameraX = _mouseX * _mouseMovFac;
             _targetCameraY = -_mouseY * _mouseMovFac;
+
+            //for ray caster
+            _pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+	        _pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
         }
 
         const _cameraAccFac = 0.01;
@@ -896,7 +1167,6 @@ class CellLevel extends Level {
         }
 
         let _isCameraLookAtTarget = true;
-        let _focusAnimFlag = false;
 
         function updateCamera() {
             
@@ -908,15 +1178,179 @@ class CellLevel extends Level {
                 _camera.lookAt( _cameraCurrentTarget );
             }
 
-        }
+            _cameraObject.position.copy( _camera.position );
+            _cameraObject.rotation.copy( _camera.rotation );
 
-        let _focusFlag = false;
+        }
 
         function updateCSSLookAtCamera() {
             if( !_focusFlag ){
                 for(let i = 0; i < _objectCSSList.length; i++){
                     _objectCSSList[i].lookAt( _camera.position.clone() );
                 }
+            }
+        }
+
+        const _raycaster = new THREE.Raycaster();
+
+        let _CELL_INTERSECTED = null;
+
+        function findPointCell() {
+            if( _focusFlag || _startAnimeFlag ) return;
+
+            _raycaster.setFromCamera( _pointer, _camera );
+            let intersects = _raycaster.intersectObjects( _membraneList );
+            if ( intersects.length > 0 ) {
+                if( _CELL_INTERSECTED != intersects[ 0 ].object ){
+                    _CELL_INTERSECTED = intersects[ 0 ].object;
+                }
+            }else{
+                _CELL_INTERSECTED = null;
+            }
+        }
+
+        let _darkenFac = 1.0;
+        const _darkenFacMin = 0.05;
+        const _darkenFacMax = 1.0;
+        const _darkenFacSpeedPS = 2.0;
+
+        let _focusPos = new THREE.Vector2( 0.0, 0.0 );
+        let _hasFocus = false;
+        const _focusMoveTimeMS = 300;
+        const _focusFadeTimeMS = 1000;
+        let _pointCellIndex = -1;
+        let _fadeTween;
+        let _colorTween;
+
+        let _focusColorFac = new THREE.Vector3( 0.0, 0.0, 0.0 );
+
+        function updateFocus() {
+            if( !_deltaTime || _startAnimeFlag ) return;
+
+            if( _CELL_INTERSECTED && !_focusFlag ) {
+                _darkenFac -= _darkenFacSpeedPS * _deltaTime;
+                _darkenFac = Math.max( _darkenFac, _darkenFacMin );
+
+                const cell = _cellsGroup.children[ _CELL_INTERSECTED.cellIndex ];
+                const posNDC = new THREE.Vector3( cell.position.x, cell.position.y, cell.position.z ).project( _camera );
+                const glX = ( posNDC.x + 1.0 ) * 0.5 * _rtWidth;
+                const glY = ( posNDC.y + 1.0 ) * 0.5 * _rtHeight;
+
+                if( !_hasFocus ) {
+                    _focusPos.set( glX, glY );
+                    _focusColorFac.set( _CELL_INTERSECTED.focusColorFac.x, 
+                        _CELL_INTERSECTED.focusColorFac.y, _CELL_INTERSECTED.focusColorFac.z );
+                    _hasFocus = true;
+                }else if( _hasFocus && _pointCellIndex !== _CELL_INTERSECTED.cellIndex ){
+
+                    new TWEEN.Tween( _focusPos )
+                    .to( { x : glX, y : glY }, _focusMoveTimeMS )
+                    .easing( TWEEN.Easing.Linear.None )
+                    .start();
+
+                    if( _fadeTween ){
+                        TWEEN.remove( _fadeTween );
+                        _fadeTween = null;
+                    }
+
+                    _colorTween = new TWEEN.Tween( _focusColorFac )
+                    .to( { x : _CELL_INTERSECTED.focusColorFac.x, 
+                        y : _CELL_INTERSECTED.focusColorFac.y, 
+                        z : _CELL_INTERSECTED.focusColorFac.z }, _focusMoveTimeMS )
+                    .easing( TWEEN.Easing.Linear.None )
+                    .start();
+                }
+                _pointCellIndex = _CELL_INTERSECTED.cellIndex;
+            }else{
+                _darkenFac += _darkenFacSpeedPS * _deltaTime;
+                _darkenFac = Math.min( _darkenFac, _darkenFacMax );
+                if( _hasFocus && _pointCellIndex !== -1 ) {
+                    if( _colorTween ){
+                        TWEEN.remove( _colorTween );
+                        _colorTween = null;
+                    }
+
+                    _fadeTween = new TWEEN.Tween( _focusColorFac )
+                    .to( { x : 1.0, y : 1.0, z : 1.0 }, _focusFadeTimeMS )
+                    .easing( TWEEN.Easing.Linear.None )
+                    .onComplete( ()=>{
+                        _hasFocus = false;
+                    } ).start();
+                }
+                _pointCellIndex = -1;
+            }
+
+            _ssDarkenMFMaterial.uniforms[ 'darkenFac' ].value = _darkenFac;
+            _ssDarkenMFMaterial.uniforms[ 'focusColorFac' ].value.set( _focusColorFac.x, _focusColorFac.y, _focusColorFac.z );
+            _ssDarkenMFMaterial.uniforms[ 'focusPos' ].value.set( _focusPos.x, _focusPos.y );
+
+        }
+
+        function updatePointLight() {
+            if( !_deltaTime ) return;
+
+            let node, nextNode;
+            let pos, nextPos;
+            let randBranchIndex;
+
+            for( let i = 0; i < _axonLightList.length; i++ ) {
+                const pointLight = _axonLightList[i];
+
+                let acc = pointLight.layerFac;
+                acc += ( _deltaTime * pointLight.layerFacAccPS );
+                const a = Math.min( Math.floor(acc), 1 );
+                pointLight.layerFac = acc - a;
+
+                if( pointLight.axonNode.branches.length > 0 ) {
+                    if( pointLight.fadeInOutFac < 1 ){
+                        const fac = pointLight.fadeInOutFac + _deltaTime * pointLight.fadeInOutPS;
+                        pointLight.fadeInOutFac = Math.min( fac, 1 );
+                    }
+                    pointLight.pointLightMesh.material.intensity = _axonLightMaterialIntensityFull * pointLight.fadeInOutFac;
+                    pointLight.light.intensity = _axonLightIntensityFull * pointLight.fadeInOutFac;
+
+                    if(a === 1){
+                        randBranchIndex = getRandomIntBetween(0, pointLight.axonNode.branches.length - 1);
+                        node = pointLight.axonNode.branches[randBranchIndex];
+                        pos = node.position;
+                        if( node.branches.length > 0 ){
+                            randBranchIndex = getRandomIntBetween(0, node.branches.length - 1);
+                            nextNode = node.branches[randBranchIndex];
+                            nextPos = nextNode.position;
+                        }else{
+                            nextNode = node;
+                            nextPos = nextNode.position;
+                            pointLight.layerFac = 0;
+                        }
+                    }else{
+                        node = pointLight.axonNode;
+                        pos = node.position;
+                        randBranchIndex = getRandomIntBetween(0, node.branches.length - 1);
+                        nextNode = node.branches[randBranchIndex];
+                        nextPos = nextNode.position;
+                    }
+                    pointLight.position.lerpVectors(pos, nextPos, pointLight.layerFac);
+                    pointLight.axonNode = node;
+                }else{
+                    if(pointLight.fadeInOutFac === 0){
+                        const cellIndex = pointLight.cellIndex;
+                        initLightMaterialProp(pointLight, cellIndex, false);
+                        const headIndex = pointLight.headIndex;
+                        node = _nucleusHighList[cellIndex].axonListHeads[headIndex];
+                        randBranchIndex = getRandomIntBetween(0, node.branches.length - 1);
+                        nextNode = node.branches[randBranchIndex];
+                    }else{
+                        node = pointLight.axonNode;
+                        nextNode = node;
+                        const fac = pointLight.fadeInOutFac - _deltaTime * pointLight.fadeInOutPS;
+                        pointLight.fadeInOutFac = Math.max(fac, 0);
+                        pointLight.pointLightMesh.material.intensity = _axonLightMaterialIntensityFull * pointLight.fadeInOutFac;
+                        pointLight.light.intensity = _axonLightIntensityFull * pointLight.fadeInOutFac;
+                    }
+                }
+                pointLight.pointLightMesh.material.layerFac = pointLight.layerFac;
+                pointLight.pointLightMesh.material.layer0 = node.layer;
+                pointLight.pointLightMesh.material.layer1 = nextNode.layer;
             }
         }
 
@@ -928,7 +1362,10 @@ class CellLevel extends Level {
             TWEEN.update();
             updateCamera();
             updateCSSLookAtCamera();
-            
+            findPointCell();
+            updateFocus();
+            updatePointLight();
+
             render();
 
         }
@@ -1028,25 +1465,54 @@ class CellLevel extends Level {
 
             _this.renderer.setViewport( 0, 0, window.innerWidth, window.innerHeight );
 
-
-            _this.renderer.setRenderTarget( _rtNucleusDepth );
+            if( _mixFac != 1 ){
+                _this.renderer.setRenderTarget( _rtNucleusDepth );
+                _this.renderer.clear();
+                _this.renderer.render( _sceneNucleusDepth, _camera );
+    
+                _this.renderer.setRenderTarget( _rtCell );
+                _this.renderer.clear();
+                _this.renderer.render( _sceneCells, _camera );
+    
+                _screenMesh.material = _ssDarkenMFMaterial;
+                _ssDarkenMFMaterial.uniforms[ 'devicePixelRatio' ].value = 1.0;
+                _this.renderer.setRenderTarget( _rtCellMF );
+                _this.renderer.clear();
+                _this.renderer.render( _sceneScreen, _camera );
+            }
+            
+            setChildrenVisibleByName( _cellsGeoGroup, 'cellGeo', true );
+            _this.renderer.setRenderTarget( _rtCellGeo );
             _this.renderer.clear();
-            _this.renderer.render( _sceneNucleusDepth, _camera );
+            _this.renderer.render( _sceneCellsGeo, _camera );
 
-            _this.renderer.setRenderTarget( _rtCell );
+            _gaussianEffect.setTexture( _rtCellGeo.texture );
+            _gaussianEffect.render( _this.renderer, _rtGaussianBlur );
+
+            _screenMesh.material = _ssShowMaterial;
+            _ssShowMaterial.uniforms[ 'tScreen' ].value = _rtGaussianBlur.texture;
+            _ssShowMaterial.uniforms[ 'toneMapping' ].value = true;
+            _this.renderer.setRenderTarget( _rtShow );
             _this.renderer.clear();
-            _this.renderer.render( _sceneCells, _camera );
+            _this.renderer.render( _sceneScreen, _camera );
 
-            _screenMesh.material = _ssDarkenMFMaterial;
-            _ssDarkenMFMaterial.uniforms[ 'devicePixelRatio' ].value = 1.0;
-            _this.renderer.setRenderTarget( _rtCellMF );
+            _screenMesh.material = _ssFacMixCombineMaterial;
+            _this.renderer.setRenderTarget( _rtCombine );
             _this.renderer.clear();
             _this.renderer.render( _sceneScreen, _camera );
 
         }
 
+        function setChildrenVisibleByName(parent, name, flag){
+            parent.traverse((obj) => {
+                if(obj.name === name){
+                   obj.visible = flag;
+                }
+            });
+        }
+
         this.setOutput = function( output ) {
-            output.setTexture( _rtCellMF.texture );
+            output.setTexture( _rtCombine.texture );
         }
 
     }
