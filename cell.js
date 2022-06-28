@@ -33,8 +33,8 @@ class CellLevel extends Level {
         const _sceneCellsGeo = new THREE.Scene();
         const _sceneCSS = new THREE.Scene();
 
-        const _rtWidth = window.innerWidth;
-        const _rtHeight = window.innerHeight;
+        let _rtWidth = window.innerWidth;
+        let _rtHeight = window.innerHeight;
 
         this.init = function() {
 
@@ -93,6 +93,8 @@ class CellLevel extends Level {
         let _rtShow;
         let _rtCombine;
 
+        const _screenOrgAspectRatio = window.innerWidth / window.innerHeight;
+
         const _rtParams = {
             minFilter: THREE.LinearFilter, 
             magFilter: THREE.NearestFilter,
@@ -122,6 +124,13 @@ class CellLevel extends Level {
 
         function resizeRenderTarget( width, height ) {
             _rtCell.setSize( width, height );
+            _rtShow.setSize( width, height );
+            _rtCombine.setSize( width, height );
+
+            _rtNucleusDepth.setSize( width, height );
+            _rtCellMF.setSize( width, height );
+            _rtCellGeo.setSize( width, height );
+            _rtGaussianBlur.setSize( width, height );
         }
 
         let _envData;
@@ -753,7 +762,7 @@ class CellLevel extends Level {
                 const element = document.createElement( 'div' );
                 element.className = 'cssTitle cellTitle';
                 element.style.backgroundColor = 'rgba(0,0,0,0)';
-        
+
                 const name = document.createElement( 'div' );
                 name.className = 'cellName moveIn';
                 name.textContent = cellData[ i + 1 ];
@@ -1013,12 +1022,33 @@ class CellLevel extends Level {
         }
 
         function onWindowResize() {
+
+            _windowHalfX = window.innerWidth / 2;
+            _windowHalfY = window.innerHeight / 2;
+
+            _rtWidth = window.innerWidth;
+            _rtHeight = window.innerHeight;
+
             _camera.aspect = window.innerWidth / window.innerHeight;
             _camera.updateProjectionMatrix();
 
             _this.renderer.setSize( window.innerWidth, window.innerHeight );
+            _this.rendererCSS.setSize( window.innerWidth, window.innerHeight );
 
             resizeRenderTarget( window.innerWidth, window.innerHeight );
+            updateMaterialRelatedToWindow();
+            _gaussianEffect.setSize( window.innerWidth, window.innerHeight );
+        }
+
+        function updateMaterialRelatedToWindow(){
+            const aspectRatio = window.innerWidth / window.innerHeight;
+            if(aspectRatio > _screenOrgAspectRatio){
+                _ssDarkenMFMaterial.uniforms[ 'threshold' ].value = window.innerHeight / 20 * _screenOrgAspectRatio;
+                _ssDarkenMFMaterial.uniforms[ 'falloff' ].value = window.innerHeight / 20 * _screenOrgAspectRatio;
+            }else{
+                _ssDarkenMFMaterial.uniforms[ 'threshold' ].value = window.innerWidth / 20;
+                _ssDarkenMFMaterial.uniforms[ 'falloff' ].value = window.innerWidth / 20;
+            }
         }
 
         let _focusFlag = false;
@@ -1140,6 +1170,7 @@ class CellLevel extends Level {
         const _cameraReturnTimeMS = 2000;
 
         function onReturnClick() {
+            // console.log('aaaaa')
             if( _focusFlag && !_focusAnimFlag && !_startAnimeFlag ) {
                 TWEEN.removeAll();
                 _focusAnimFlag = true;
