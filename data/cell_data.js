@@ -2,7 +2,7 @@
  * 
  * cell position z need >= 0.4. 
  * if z close to 0.0, camera close to 0.0. 
- * css object click event don't work if camera close to 0.0.
+ * css object click event not work if camera close to 0.0.
  * 
  */
 
